@@ -27,17 +27,29 @@ try {
     `);
 }
 
+function getAppSecret(config) {
+    return new Promise(function (resolve, reject) {
+        if(process.env.appSecretIos){
+            resolve(process.env.appSecretIos);
+        } else {
+            inquirer.prompt([{
+                type: 'input',
+                default: config.get('AppSecret'),
+                message: 'What is the iOS App Secret?',
+                name: 'AppSecret',
+            }]).then(function (answers) {
+                resolve(answers['AppSecret']);
+            });
+        }
+    });
+}
+
 module.exports = {
     initMobileCenterConfig: function(file) {
         var config = new MobileCenterConfig(MobileCenterConfig.searchForFile(path.dirname(appDelegatePath)));
-        return inquirer.prompt([{
-            type: 'input',
-            default: config.get('AppSecret'),
-            message: 'What is the iOS App Secret?',
-            name: 'AppSecret',
-        }]).then(function(answers) {
+        return getAppSecret(config).then(function(appSecret) {
             try {
-                config.set('AppSecret', answers['AppSecret']);
+                config.set('AppSecret', appSecret);
                 return config.save();
             } catch (e) {
                 debug('Could not save config', e);
@@ -60,9 +72,6 @@ module.exports = {
     },
 
     addPodDeps: function(pods) {
-        if (!PodFile.isCocoaPodsInstalled()) {
-            return Promise.reject(new Error('Could not find "pod" command. Is CocoaPods installed?'));
-        }
         var podFile = new PodFile(PodFile.searchForFile(path.resolve(path.dirname(appDelegatePath), '..')));
         pods.forEach(function(pod) {
             podFile.addPodLine(pod.pod, pod.podspec, pod.version);
